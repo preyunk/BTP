@@ -20,7 +20,9 @@ from server_cfg import model, deep_sort_dict
 from config.config import DevelopmentConfig
 from utils.parser import get_config
 
-redis_cache = Redis('127.0.0.1')
+redis_cache = Redis(host='redis-16195.c296.ap-southeast-2-1.ec2.cloud.redislabs.com',
+    port=16195,
+    password='VgWQpvqYEAp4Qlr6XO9v7rO7SMPeqOys')
 app = Flask(__name__)
 environ['in_progress'] = 'off'
 

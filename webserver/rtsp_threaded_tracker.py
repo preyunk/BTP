@@ -2,6 +2,7 @@ import warnings
 from os import getenv
 import sys
 from os.path import dirname, abspath
+import time
 
 sys.path.append(dirname(dirname(abspath(__file__))))
 
@@ -13,7 +14,9 @@ from utils.draw import compute_color_for_labels
 from concurrent.futures import ThreadPoolExecutor
 from redis import Redis
 
-redis_cache = Redis('127.0.0.1')
+redis_cache = Redis(host='redis-16195.c296.ap-southeast-2-1.ec2.cloud.redislabs.com',
+    port=16195,
+    password='VgWQpvqYEAp4Qlr6XO9v7rO7SMPeqOys')
 
 
 class RealTimeTracking(object):
@@ -41,7 +44,8 @@ class RealTimeTracking(object):
         self.deepsort = build_tracker(cfg, use_cuda=use_cuda)
         self.class_names = self.detector.class_names
 
-        self.vdo = cv2.VideoCapture(self.args.input)
+        # self.vdo = cv2.VideoCapture(self.args.input)
+        self.vdo = cv2.VideoCapture("project2.mp4")
         self.status, self.frame = None, None
         self.total_frames = int(cv2.VideoCapture.get(self.vdo, cv2.CAP_PROP_FRAME_COUNT))
         self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -52,28 +56,50 @@ class RealTimeTracking(object):
         self.thread = ThreadPoolExecutor(max_workers=1)
         self.thread.submit(self.update)
 
+    # def update(self):
+    #     while True:
+    #         if self.vdo.isOpened():
+    #             (self.status, self.frame) = self.vdo.read()
+
+    # def run(self):
+    #     print('streaming started ...')
+    #     while getenv('in_progress') != 'off':
+    #         try:
+    #             frame = self.frame.copy()
+    #             self.detection(frame=frame)
+    #             frame_to_bytes = cv2.imencode('.jpg', frame)[1].tobytes()
+    #             redis_cache.set('frame', frame_to_bytes)
+    #         except AttributeError:
+    #             pass
+    #     print('streaming stopped ...')
+
+    # -------------new
+
     def update(self):
-        while True:
-            if self.vdo.isOpened():
-                (self.status, self.frame) = self.vdo.read()
+        print("Callback")
 
     def run(self):
         print('streaming started ...')
-        while getenv('in_progress') != 'off':
+        print(self.vdo)
+        (self.status, self.frame) = self.vdo.read()
+        while getenv('in_progress') != 'off' and self.status:
             try:
                 frame = self.frame.copy()
                 self.detection(frame=frame)
                 frame_to_bytes = cv2.imencode('.jpg', frame)[1].tobytes()
                 redis_cache.set('frame', frame_to_bytes)
+                (self.status, self.frame) = self.vdo.read()
             except AttributeError:
                 pass
         print('streaming stopped ...')
+
 
 
     def detection(self, frame):
         im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         # do detection
         bbox_xywh, cls_conf, cls_ids = self.detector(im)
+        print(bbox_xywh)
         if bbox_xywh is not None:
             # select person class
             mask = cls_ids == 0
@@ -84,7 +110,7 @@ class RealTimeTracking(object):
 
             # do tracking
             outputs = self.deepsort.update(bbox_xywh, cls_conf, im)
-
+            print(outputs)
             # draw boxes for visualization
             if len(outputs) > 0:
                 self.draw_boxes(img=frame, output=outputs)
@@ -93,6 +119,7 @@ class RealTimeTracking(object):
     def draw_boxes(img, output, offset=(0, 0)):
         for i, box in enumerate(output):
             x1, y1, x2, y2, identity = [int(ii) for ii in box]
+            print(x1,y1,x2,y2)
             x1 += offset[0]
             x2 += offset[0]
             y1 += offset[1]
@@ -105,4 +132,5 @@ class RealTimeTracking(object):
             cv2.rectangle(img, (x1, y1), (x2, y2), color, 3)
             cv2.rectangle(img, (x1, y1), (x1 + t_size[0] + 3, y1 + t_size[1] + 4), color, -1)
             cv2.putText(img, label, (x1, y1 + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 2, [255, 255, 255], 2)
+            print(time.time())
         return img
