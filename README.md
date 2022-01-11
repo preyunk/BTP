@@ -79,3 +79,81 @@ Points parameter is set to 0 since we are evaluating a custom dataset (other tha
 ```
 ./darknet detector map cfg/visdrone.data cfg/yolov3-visdrone.cfg /gdrive/MyDrive/datasets/config/yolov3-visdrone-best.weights -points 0
 ```
+
+***
+
+### *Tracking - YOLOv3 + DeepSORT*
+
+### Check all dependencies installed
+```
+pip install -r requirements.txt
+```
+
+### Update configurations
+Make sure to change the paths specified in `yaml` files which are basically the configuration files for the model to be used.
+
+Create a video from UAV123 dataset image sequence which will serve as our input. The required script to convert image sequence to mp4 video could be found in scripts directory.
+
+### Download deepsort parameters ckpt.t7
+```
+cd deep_sort/deep/checkpoint
+# download ckpt.t7 from
+https://drive.google.com/drive/folders/1xhG0kRH1EX5B9_Iz8gQJb7UNnn_riXi6 to this folder
+cd ../../../
+```
+
+### Build python NMS
+```
+cd /content/BTP/detector/YOLOv3/nms/ext/ && python build.py build_ext develop
+```
+
+### Run demo
+```
+usage: deepsort.py [-h]
+                   [--fastreid]
+                   [--config_fastreid CONFIG_FASTREID]
+                   [--mmdet]
+                   [--config_mmdetection CONFIG_MMDETECTION]
+                   [--config_detection CONFIG_DETECTION]
+                   [--config_deepsort CONFIG_DEEPSORT] [--display]
+                   [--frame_interval FRAME_INTERVAL]
+                   [--display_width DISPLAY_WIDTH]
+                   [--display_height DISPLAY_HEIGHT] [--save_path SAVE_PATH]
+                   [--cpu] [--camera CAM]
+                   VIDEO_PATH
+```
+
+Use `--display` to enable display.
+
+Results will be saved to `./output/results.avi` and `./output/results.txt.`
+
+***
+### *Model Optimization*
+
+### Requirements
+- pytorch >= 1.0
+- darknet
+- ultralytics/yolov3
+
+### IMPORTANT Instructions
+1. TO run sparsity training and channel pruning, `ultralytics/yolov3` is required.
+
+2. We only provide the pruning method for channel pruning (prune.py) and subgradient method for sparsity training (sparsity.py).
+
+3. Sparsity training can be done by using updateBN() in sparsity.py before optimizer.step() in train.py.
+4. The channel pruning can be done by prune.py.
+
+### Sparsity Training
+```
+python yolov3/train.py --cfg VisDrone2019/yolov3-spp3.cfg --data-cfg VisDrone2019/drone.data -sr --s 0.0001 --alpha 1.0
+```
+
+### Channel Pruning
+```
+python yolov3/prune.py --cfg VisDrone2019/yolov3-spp3.cfg --data-cfg VisDrone2019/drone.data --weights yolov3-spp3_sparsity.weights --overall_ratio 0.5 --perlayer_ratio 0.1
+```
+
+### Fine Tuning
+```
+./darknet/darknet detector train VisDrone2019/drone.data  cfg/prune_0.5.cfg weights/prune_0.5/prune.weights
+```
