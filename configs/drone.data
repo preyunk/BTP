@@ -1,0 +1,7 @@
+classes=10
+train = VisDrone2019/drone/train.lists
+valid = VisDrone2019/drone/val.lists
+labels = configs/visdrone.names
+names = configs/visdrone.names
+backup = backup_drone/
+eval=visdrone
